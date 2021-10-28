@@ -29,9 +29,9 @@ jobs:
             cd build/bin
             VERSION=$(./geth version | grep "^Version:" | cut -d' ' -f2 | cut -d'-' -f1)
             echo $VERSION	  
-            tar -cvjf etho-linux-V${VERSION}.tar.gz geth && rm geth
+            tar -cvjf etho-linux-V${VERSION}-test.tar.gz geth && rm geth
             go get github.com/tcnksm/ghr
-            ghr -t "${GITHUB_TOKEN}" -u "${CIRCLE_PROJECT_USERNAME}" -r "${CIRCLE_PROJECT_REPONAME}" -c "${CIRCLE_SHA1}" -delete -n "${CIRCLE_BRANCH}" --prerelease "V${VERSION}-test" ./
+            ghr -t "${GITHUB_TOKEN}" -u "${CIRCLE_PROJECT_USERNAME}" -r "${CIRCLE_PROJECT_REPONAME}" -c "${CIRCLE_SHA1}" -delete -n "${CIRCLE_BRANCH}" -b "***FOR TESTING PURPOSE ONLY***" --prerelease "V${VERSION}-test" ./
 
   release:
     docker:
