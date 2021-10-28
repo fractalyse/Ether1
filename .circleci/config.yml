@@ -15,58 +15,59 @@ jobs:
           name: "Compile"
           command:
             make geth
-      - persist_to_workspace:
-          root: build/bin
-          paths:
-            - geth
   prerelease:
     docker:
       - image: circleci/golang:1.14
     steps:
-      - attach_workspace:
-          at: /tmp/workspace
+      - checkout
+      - run:
+          name: "Compile"
+          command: make geth
       - run:
           name: "Make tar PreRelease and publish"
           command: |
-            go get github.com/tcnksm/ghr
-            cd /tmp/workspace
+            cd build/bin
             VERSION=$(./geth version | grep "^Version:" | cut -d' ' -f2 | cut -d'-' -f1)
             echo $VERSION	  
-            tar -cvjf etho-linux-${VERSION}.tar.gz geth && rm geth
-            ghr -t "${GITHUB_TOKEN}" -u "${CIRCLE_PROJECT_USERNAME}" -r "${CIRCLE_PROJECT_REPONAME}" -c "${CIRCLE_SHA1}" -delete -n "${CIRCLE_BRANCH}" --prerelease "${VERSION}" ./
+            tar -cvjf etho-linux-V${VERSION}.tar.gz geth && rm geth
+            go get github.com/tcnksm/ghr
+            ghr -t "${GITHUB_TOKEN}" -u "${CIRCLE_PROJECT_USERNAME}" -r "${CIRCLE_PROJECT_REPONAME}" -c "${CIRCLE_SHA1}" -delete -n "${CIRCLE_BRANCH}" --prerelease "V${VERSION}-test" ./
 
   release:
     docker:
       - image: circleci/golang:1.14
     steps:
-      - attach_workspace:
-          at: /tmp/workspace
+      - checkout
       - run:
           name: "Make tar Release and publish"
           command: |
-            go get github.com/tcnksm/ghr
-            cd /tmp/workspace
+            make geth
+            cd build/bin
             VERSION=$(./geth version | grep "^Version:" | cut -d' ' -f2 | cut -d'-' -f1)
             echo $VERSION	  
-            tar -cvjf etho-linux-${VERSION}.tar.gz geth && rm geth
-            ghr -t "${GITHUB_TOKEN}" -u "${CIRCLE_PROJECT_USERNAME}" -r "${CIRCLE_PROJECT_REPONAME}" -c "${CIRCLE_SHA1}" -delete "${VERSION}" ./
+            tar -cvjf etho-linux-V${VERSION}.tar.gz geth && rm geth
+            go get github.com/tcnksm/ghr
+            ghr -t "${GITHUB_TOKEN}" -u "${CIRCLE_PROJECT_USERNAME}" -r "${CIRCLE_PROJECT_REPONAME}" -c "${CIRCLE_SHA1}" -delete "V${VERSION}" ./
 
 workflows:
   version: 2.1
   main:
     jobs:
-      - build
+      - build:
+          filters:
+            branches:
+              ignore:
+                - testnet-implementation
+                - master
+                - fix-circleci-builds
       - prerelease:
-          requires:
-            - build
           filters:
             branches:
               only:
-                - testnet
+                - testnet-implementation
+                - fix-circleci-builds
       - release:
-          requires:
-            - build
           filters:
             branches:
               only:
-                - release
+                - master
