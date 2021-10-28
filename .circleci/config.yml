@@ -1,17 +1,72 @@
 # Golang CircleCI 2.0 configuration file
 #
 # Check https://circleci.com/docs/2.0/language-go/ for more details
+#
+# Credit Fractalyse (CuBe)
+#
 version:                2.1
 jobs:
   build:
-
     docker:
       - image:          circleci/golang:1.14
-
-    working_directory:  /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
     steps:
       - checkout
-      # specify any bash command here prefixed with `run: `
-      - run:            make geth && cd build/bin && sudo apt-get install zip && zip ether-1-linux-1.3.2.zip geth
-      - store_artifacts:
-          path:         build/bin/
+      - run:
+          name: "Compile"
+          command:
+            make geth
+      - persist_to_workspace:
+          root: build/bin
+          paths:
+            - geth
+  prerelease:
+    docker:
+      - image: circleci/golang:1.14
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: "Make tar PreRelease and publish"
+          command: |
+            go get github.com/tcnksm/ghr
+            cd /tmp/workspace
+            VERSION=$(./geth version | grep "^Version:" | cut -d' ' -f2 | cut -d'-' -f1)
+            echo $VERSION	  
+            tar -cvjf etho-linux-${VERSION}.tar.gz geth && rm geth
+            ghr -t "${GITHUB_TOKEN}" -u "${CIRCLE_PROJECT_USERNAME}" -r "${CIRCLE_PROJECT_REPONAME}" -c "${CIRCLE_SHA1}" -delete -n "${CIRCLE_BRANCH}" --prerelease "${VERSION}" ./
+
+  release:
+    docker:
+      - image: circleci/golang:1.14
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: "Make tar Release and publish"
+          command: |
+            go get github.com/tcnksm/ghr
+            cd /tmp/workspace
+            VERSION=$(./geth version | grep "^Version:" | cut -d' ' -f2 | cut -d'-' -f1)
+            echo $VERSION	  
+            tar -cvjf etho-linux-${VERSION}.tar.gz geth && rm geth
+            ghr -t "${GITHUB_TOKEN}" -u "${CIRCLE_PROJECT_USERNAME}" -r "${CIRCLE_PROJECT_REPONAME}" -c "${CIRCLE_SHA1}" -delete "${VERSION}" ./
+
+workflows:
+  version: 2.1
+  main:
+    jobs:
+      - build
+      - prerelease:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - testnet
+      - release:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - release
